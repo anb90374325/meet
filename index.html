@@ -200,7 +200,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.
 .item-list{display:flex;flex-direction:column;gap:6px}
 .item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);transition:border-color .15s}
 .item:hover{border-color:var(--border2)}
-.item.done{opacity:.45}
+.item.done{opacity:1}
 .cb{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--border2);flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .15s}
 .item.done .cb{background:rgba(74,222,128,.2);border-color:rgba(74,222,128,.4);color:var(--green)}
 .item-body{flex:1}
@@ -264,7 +264,37 @@ mark{background:rgba(245,166,35,.25);color:var(--amber);border-radius:2px;paddin
 </head>
 <body>
 
+
+<!-- ROLE MODAL -->
+<div id="role-modal" style="position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center">
+  <div style="background:#18181f;border:1px solid #3d3d52;border-radius:16px;padding:2rem;width:360px;max-width:90vw">
+    <div style="font-size:18px;font-weight:700;color:#e8e8f0;margin-bottom:.5rem">👋 歡迎使用 MeetingOS</div>
+    <div style="font-size:13px;color:#9090a8;margin-bottom:1.25rem">請輸入你的名字並選擇角色</div>
+    <div style="margin-bottom:.875rem">
+      <label style="font-size:11px;color:#55556a;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px">你的名字</label>
+      <input id="role-name" class="meta-input" placeholder="例：王小明" style="width:100%" onkeydown="if(event.key==='Enter')confirmRole()">
+    </div>
+    <div style="margin-bottom:1.25rem">
+      <label style="font-size:11px;color:#55556a;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:8px">角色</label>
+      <div style="display:flex;gap:8px">
+        <div class="role-opt active-role" id="role-opt-editor" onclick="selectRole('editor')" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid rgba(124,110,247,.5);background:rgba(124,110,247,.1);cursor:pointer;transition:all .15s">
+          <div style="font-size:16px;margin-bottom:4px">✏️</div>
+          <div style="font-size:13px;font-weight:500;color:#a89cf5">編輯者</div>
+          <div style="font-size:11px;color:#9090a8;margin-top:2px">可新增、編輯、刪除</div>
+        </div>
+        <div class="role-opt" id="role-opt-viewer" onclick="selectRole('viewer')" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #2e2e3d;background:#22222d;cursor:pointer;transition:all .15s">
+          <div style="font-size:16px;margin-bottom:4px">👁️</div>
+          <div style="font-size:13px;font-weight:500;color:#e8e8f0">檢視者</div>
+          <div style="font-size:11px;color:#9090a8;margin-top:2px">只能查看，無法修改</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn accent" style="width:100%;justify-content:center;padding:10px" onclick="confirmRole()">進入系統</button>
+  </div>
+</div>
+
 <div class="sync-bar" id="sync-bar"></div>
+<div id="role-pill" style="position:fixed;top:12px;right:160px;z-index:1000;font-size:11px;padding:4px 12px;border-radius:20px;background:#22222d;border:1px solid #2e2e3d;color:#9090a8;display:none"></div>
 <div class="sync-pill offline" id="sync-pill">
   <div class="sync-dot"></div>
   <span id="sync-text">未連線</span>
@@ -385,9 +415,17 @@ mark{background:rgba(245,166,35,.25);color:var(--amber);border-radius:2px;paddin
   </div>
   <div class="card">
     <div class="sh"><div class="sh-dot d-teal"></div><span class="sh-title">出席打卡</span><span class="sh-badge b-teal" id="e-att-badge">0 人</span></div>
+    <!-- 自行報到區 -->
+    <div id="self-checkin-box" style="display:none;margin-bottom:1rem;padding:12px 14px;border-radius:10px;background:rgba(45,212,168,.06);border:1px solid rgba(45,212,168,.2)">
+      <div style="font-size:12px;color:var(--teal);margin-bottom:.5rem">👤 你還未打卡，點擊下方按鈕報到</div>
+      <div style="display:flex;gap:8px">
+        <input class="add-input" id="self-name" placeholder="輸入你的名字..." onkeydown="if(event.key==='Enter')selfCheckin()">
+        <button class="btn teal" onclick="selfCheckin()">✓ 我到了</button>
+      </div>
+    </div>
     <div class="att-grid" id="e-att-list"></div>
-    <div class="add-row" style="margin-top:.75rem">
-      <input class="add-input" id="e-new-att" placeholder="新增與會者..." onkeydown="if(event.key==='Enter')eAddAtt()">
+    <div class="add-row" style="margin-top:.75rem" id="add-att-row">
+      <input class="add-input" id="e-new-att" placeholder="預先新增與會者名單..." onkeydown="if(event.key==='Enter')eAddAtt()">
       <button class="btn teal" onclick="eAddAtt()">+ 新增</button>
     </div>
   </div>
@@ -409,9 +447,16 @@ mark{background:rgba(245,166,35,.25);color:var(--amber);border-radius:2px;paddin
       <button class="btn" onclick="eAddTodo()">+ 新增</button>
     </div>
   </div>
-  <div class="card">
-    <div class="sh"><div class="sh-dot d-accent"></div><span class="sh-title">會議記錄內容</span></div>
-    <textarea class="notes-area" id="e-notes" placeholder="在此輸入會議記錄..." style="min-height:200px"></textarea>
+  <div class="card" id="notes-card">
+    <div class="sh">
+      <div class="sh-dot d-accent"></div><span class="sh-title">會議記錄內容</span>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button class="btn sm" id="notes-edit-btn" onclick="setNotesMode('edit')" style="background:rgba(124,110,247,.15);color:var(--accent2);border-color:rgba(124,110,247,.3)">✏️ 編輯</button>
+        <button class="btn sm" id="notes-view-btn" onclick="setNotesMode('view')">👁 預覽</button>
+      </div>
+    </div>
+    <textarea class="notes-area" id="e-notes" placeholder="在此輸入會議記錄...&#10;&#10;支援格式：&#10;## 標題&#10;- 項目&#10;**粗體**" style="min-height:240px" oninput="autoSave();syncNotesPreview()"></textarea>
+    <div id="e-notes-preview" style="display:none;min-height:240px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:13px;line-height:1.9;color:var(--text2)"></div>
   </div>
 </div>
 
@@ -533,6 +578,8 @@ let autoSaveTimer = null;
 let lastAnalysis = null;
 let fbUnsubscribe = null;
 let FBReady = false;
+let USER_ROLE = 'viewer'; // 'editor' | 'viewer'
+let USER_NAME = '';
 
 // ─── UTILS ─────────────────────────────────────────────
 function p2(n){return String(n).padStart(2,'0')}
@@ -785,9 +832,17 @@ function renderEditorTodo(){
   const m=DB.meetings.find(x=>x.id===currentId);if(!m)return;
   const el=document.getElementById('e-todo-list');if(!el)return;
   el.innerHTML='';
-  (m.todos||[]).forEach((t,i)=>{
+  // show undone first, then done
+  const sorted=[...(m.todos||[]).map((t,i)=>({...t,_i:i}))].sort((a,b)=>a.done-b.done);
+  sorted.forEach(t=>{
+    const i=t._i;
     const div=document.createElement('div');div.className='item'+(t.done?' done':'');
-    div.innerHTML=`<div class="cb" onclick="eToggleTodo(${i})">${t.done?'✓':''}</div><div class="item-body"><div class="item-text">${t.text}</div><div class="item-sub">${t.owner?'@'+t.owner:''}${t.due?' · '+t.due:''}</div></div><span class="item-del" onclick="eDelTodo(${i})">✕</span>`;
+    div.innerHTML=`<div class="cb" onclick="eToggleTodo(${i})" style="${t.done?'background:rgba(74,222,128,.2);border-color:rgba(74,222,128,.4);color:var(--green)':''}">${t.done?'✓':''}</div>
+      <div class="item-body">
+        <div class="item-text">${t.text}${t.done?' <span style="font-size:10px;padding:1px 7px;border-radius:20px;background:rgba(74,222,128,.12);color:var(--green);margin-left:6px;vertical-align:middle">已完成</span>':''}</div>
+        <div class="item-sub">${t.owner?'@'+t.owner:''}${t.due?' · '+t.due:''}</div>
+      </div>
+      <span class="item-del" onclick="eDelTodo(${i})">✕</span>`;
     el.appendChild(div);
   });
   const done=(m.todos||[]).filter(t=>t.done).length;
@@ -901,7 +956,8 @@ function handleDrop(e){e.preventDefault();document.getElementById('dropzone').cl
 function processImport(f){
   const ext=f.name.split('.').pop().toLowerCase();
   showImportStatus('⏳ 正在匯入 '+f.name+'...','syncing');
-  const done=(text,type)=>{
+  const done=(rawText,type)=>{
+    const text=rawText.replace(/\r\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
     const id=genId();
     const name=f.name.replace(/\.[^.]+$/,'');
     const m={id,title:name,date:todayStr(),host:'',loc:'',start:'',end:'',
@@ -978,6 +1034,122 @@ function importAIResults(){
   (lastAnalysis.todos||[]).forEach(t=>{const p=t.split('|').map(x=>x.trim());m.todos.push({text:p[0].replace(/^\[.+?\]\s*/,''),owner:p[1]||'',due:p[2]||'',done:false});});
   fbSave(m);renderEditorDec();renderEditorTodo();
   alert('已匯入分析結果至當前會議');
+}
+
+
+// ─── ROLE SYSTEM ───────────────────────────────────────
+function selectRole(r){
+  USER_ROLE=r;
+  document.getElementById('role-opt-editor').style.cssText=r==='editor'
+    ?'flex:1;padding:12px;border-radius:10px;border:1.5px solid rgba(124,110,247,.5);background:rgba(124,110,247,.1);cursor:pointer;transition:all .15s'
+    :'flex:1;padding:12px;border-radius:10px;border:1.5px solid #2e2e3d;background:#22222d;cursor:pointer;transition:all .15s';
+  document.getElementById('role-opt-viewer').style.cssText=r==='viewer'
+    ?'flex:1;padding:12px;border-radius:10px;border:1.5px solid rgba(45,212,168,.5);background:rgba(45,212,168,.1);cursor:pointer;transition:all .15s'
+    :'flex:1;padding:12px;border-radius:10px;border:1.5px solid #2e2e3d;background:#22222d;cursor:pointer;transition:all .15s';
+  document.getElementById('role-opt-editor').querySelector('div:nth-child(2)').style.color=r==='editor'?'#a89cf5':'#e8e8f0';
+  document.getElementById('role-opt-viewer').querySelector('div:nth-child(2)').style.color=r==='viewer'?'#2dd4a8':'#e8e8f0';
+}
+function confirmRole(){
+  const name=document.getElementById('role-name').value.trim();
+  if(!name){document.getElementById('role-name').focus();document.getElementById('role-name').style.borderColor='var(--rose)';return;}
+  USER_NAME=name;
+  document.getElementById('role-modal').style.display='none';
+  const pill=document.getElementById('role-pill');
+  if(pill){
+    pill.style.display='block';
+    pill.textContent=(USER_ROLE==='editor'?'✏️ ':'👁 ')+name;
+    pill.style.borderColor=USER_ROLE==='editor'?'rgba(124,110,247,.3)':'rgba(45,212,168,.3)';
+    pill.style.color=USER_ROLE==='editor'?'var(--accent2)':'var(--teal)';
+  }
+  applyRole();
+  // pre-fill self-checkin name
+  const sn=document.getElementById('self-name');if(sn)sn.value=name;
+}
+function applyRole(){
+  const isEditor=USER_ROLE==='editor';
+  // hide/show add buttons and inputs for viewers
+  const editorOnlyEls=document.querySelectorAll('#add-att-row,#e-new-dec,#e-new-todo,#e-new-owner,#e-new-due,.item-del,.add-item-row button[onclick*="eAddDec"],button[onclick="eAddDec()"],button[onclick="eAddTodo()"],button[onclick="eAddAtt()"]');
+  editorOnlyEls.forEach(el=>{if(el)el.style.display=isEditor?'':'none'});
+  // top bar editor buttons
+  const topBtns=document.querySelectorAll('button[onclick="deleteMeeting()"],button[onclick="newMeeting()"]');
+  topBtns.forEach(b=>{if(b)b.style.display=isEditor?'':'none'});
+  // notes: viewer sees preview only
+  if(!isEditor){setNotesMode('view');}
+  // show self-checkin for viewers
+  const scb=document.getElementById('self-checkin-box');
+  if(scb)scb.style.display=isEditor?'none':'flex';
+  // notes edit btn
+  const neb=document.getElementById('notes-edit-btn');
+  if(neb)neb.style.display=isEditor?'':'none';
+}
+
+// ─── SELF CHECK-IN ─────────────────────────────────────
+function selfCheckin(){
+  const m=DB.meetings.find(x=>x.id===currentId);if(!m)return;
+  const inp=document.getElementById('self-name');
+  const name=(inp?inp.value.trim():'')||USER_NAME;if(!name)return;
+  // check if already in list
+  const existing=m.attendees.find(a=>a.name===name);
+  if(existing){
+    existing.checked=true;existing.time=nowStr();
+  } else {
+    m.attendees.push({name,checked:true,time:nowStr()});
+  }
+  fbSave(m);renderEditorAtt();
+  const scb=document.getElementById('self-checkin-box');
+  if(scb)scb.innerHTML='<div style="font-size:13px;color:var(--teal)">✅ 已成功打卡！ '+nowStr()+'</div>';
+}
+
+// ─── NOTES PREVIEW ─────────────────────────────────────
+function setNotesMode(mode){
+  const ta=document.getElementById('e-notes');
+  const pv=document.getElementById('e-notes-preview');
+  const eb=document.getElementById('notes-edit-btn');
+  const vb=document.getElementById('notes-view-btn');
+  if(mode==='edit'){
+    if(ta)ta.style.display='';
+    if(pv)pv.style.display='none';
+    if(eb){eb.style.background='rgba(124,110,247,.15)';eb.style.color='var(--accent2)';eb.style.borderColor='rgba(124,110,247,.3)';}
+    if(vb){vb.style.background='';vb.style.color='';vb.style.borderColor='';}
+  } else {
+    syncNotesPreview();
+    if(ta)ta.style.display='none';
+    if(pv)pv.style.display='block';
+    if(eb){eb.style.background='';eb.style.color='';eb.style.borderColor='';}
+    if(vb){vb.style.background='rgba(45,212,168,.1)';vb.style.color='var(--teal)';vb.style.borderColor='rgba(45,212,168,.3)';}
+  }
+}
+function syncNotesPreview(){
+  const ta=document.getElementById('e-notes');
+  const pv=document.getElementById('e-notes-preview');
+  if(!ta||!pv)return;
+  const raw=ta.value
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/
+/g,'
+').replace(/
+{3,}/g,'
+
+');
+  let html=raw
+    // headings
+    .replace(/^### (.+)$/gm,'<h4 style="font-size:13px;color:var(--accent2);font-weight:600;margin:.75rem 0 .25rem">$1</h4>')
+    .replace(/^## (.+)$/gm,'<h3 style="font-size:14px;color:var(--text);font-weight:600;margin:.875rem 0 .375rem;border-bottom:1px solid var(--border);padding-bottom:.25rem">$1</h3>')
+    .replace(/^# (.+)$/gm,'<h2 style="font-size:16px;color:var(--text);font-weight:700;margin:.875rem 0 .375rem">$1</h2>')
+    // bold/italic
+    .replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--text);font-weight:600">$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    // bullet list
+    .replace(/^[-•] (.+)$/gm,'<div style="display:flex;gap:8px;margin:.2rem 0"><span style="color:var(--accent2);flex-shrink:0">›</span><span>$1</span></div>')
+    // numbered list
+    .replace(/^(\d+)\. (.+)$/gm,'<div style="display:flex;gap:8px;margin:.2rem 0"><span style="color:var(--amber);font-family:'DM Mono',monospace;font-size:11px;flex-shrink:0;margin-top:2px">$1.</span><span>$2</span></div>')
+    // blank line → paragraph break
+    .replace(/
+
+/g,'</p><p style="margin:.5rem 0">')
+    .replace(/
+/g,'<br>');
+  pv.innerHTML='<p style="margin:.5rem 0">'+html+'</p>';
 }
 
 // ─── EXPORT ────────────────────────────────────────────
